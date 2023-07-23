@@ -3,6 +3,7 @@ package com.mashibing.flinkjava.code.transformations;
 import com.mashibing.flinkjava.code.chapter6.StationLog;
 import org.apache.flink.api.common.functions.FilterFunction;
 import org.apache.flink.api.common.functions.FlatMapFunction;
+import org.apache.flink.api.common.functions.MapFunction;
 import org.apache.flink.api.common.functions.ReduceFunction;
 import org.apache.flink.api.java.functions.KeySelector;
 import org.apache.flink.api.java.tuple.Tuple2;
@@ -179,7 +180,47 @@ public class TransformationTest {
         streamOperator.print();
         environment.execute();
     }
+    /*
+     * @Author GhostGalaxy
+     * @Description //iterate 迭代算子
+     * @Date 19:17:18 2023/7/23
+     * @Param [args]
+     * @return void
+     **/
+
+    public static void iterateTest() throws Exception {
+        //从socket中获取流数据
+        DataStreamSource<String> source = environment.socketTextStream("node05", 9999);
+        SingleOutputStreamOperator<Integer> st1 = source.map(new MapFunction<String, Integer>() {
+            @Override
+            public Integer map(String s) throws Exception {
+                return Integer.valueOf(s);
+            }
+        });
+        IterativeStream<Integer> iterate = st1.iterate();
+        //定义迭代逻辑
+        SingleOutputStreamOperator<Integer> st2 = iterate.map(new MapFunction<Integer, Integer>() {
+            @Override
+            public Integer map(Integer num) throws Exception {
+                return num - 1;
+            }
+        });
+        //定义迭代结束的条件
+        SingleOutputStreamOperator<Integer> filter = st2.filter(new FilterFunction<Integer>() {
+            @Override
+            public boolean filter(Integer num) throws Exception {
+                return num > 0;
+            }
+        });
+        //对迭代流应用条件
+        iterate.closeWith(filter);
+        filter.print();
+        environment.execute();
+    }
     public static void main(String[] args) throws Exception {
         TransformationTest.flatMapTest();
+        iterateTest();
+
+
     }
 }
